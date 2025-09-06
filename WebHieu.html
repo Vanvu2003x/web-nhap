@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Nhập chuỗi và thống kê</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f3f4f6;
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        max-width: 800px;
+        margin: auto;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .login {
+        margin-bottom: 20px;
+      }
+      .input-area {
+        display: none;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .flex {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      input[type="text"],
+      input[type="password"],
+      select {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+      button {
+        padding: 10px 15px;
+        border: none;
+        background: #2563eb;
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #1d4ed8;
+      }
+      .btn-danger {
+        background: #dc2626;
+      }
+      .btn-export {
+        background: #059669;
+      }
+      .box {
+        border: 1px solid #ccc;
+        padding: 10px;
+        height: 200px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        border-radius: 6px;
+        background: #fafafa;
+      }
+      .item {
+        margin: 5px 0;
+      }
+      .time {
+        color: gray;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Form đăng nhập -->
+      <div class="login">
+        <div class="flex">
+          <input type="text" id="username" placeholder="Tên đăng nhập" />
+          <input type="password" id="password" placeholder="Mật khẩu" />
+          <button id="loginBtn">Đăng nhập</button>
+          <button id="logoutBtn" class="btn-danger">Đăng xuất</button>
+          <button id="exportBtn" class="btn-export">Xuất Excel</button>
+        </div>
+        <p id="loginMsg" style="color: red; margin-top: 8px"></p>
+      </div>
+
+      <!-- Ô nhập (chỉ hiện khi login) -->
+      <div class="input-area" id="inputArea">
+        <input type="text" id="inputText" placeholder="Nhập chuỗi..." />
+        <button id="addBtn">Thêm</button>
+      </div>
+
+      <h3>Danh sách chuỗi đã nhập</h3>
+      <div class="box" id="listBox"></div>
+
+      <h3>Thống kê số lần xuất hiện</h3>
+      <div class="box" id="countBox"></div>
+    </div>
+
+    <!-- thư viện XLSX để export excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+    <script>
+      const USERNAME = "hoangvanhieu";
+      const PASSWORD = "10082003@14082003";
+      let loggedIn = false;
+      let data = [];
+      let counts = {};
+
+      const usernameEl = document.getElementById("username");
+      const passwordEl = document.getElementById("password");
+      const loginBtn = document.getElementById("loginBtn");
+      const logoutBtn = document.getElementById("logoutBtn");
+      const exportBtn = document.getElementById("exportBtn");
+      const inputArea = document.getElementById("inputArea");
+      const inputText = document.getElementById("inputText");
+      const addBtn = document.getElementById("addBtn");
+      const listBox = document.getElementById("listBox");
+      const countBox = document.getElementById("countBox");
+      const loginMsg = document.getElementById("loginMsg");
+
+      loginBtn.addEventListener("click", () => {
+        const u = usernameEl.value.trim();
+        const p = passwordEl.value.trim();
+        if (u === USERNAME && p === PASSWORD) {
+          loggedIn = true;
+          inputArea.style.display = "flex";
+          loginMsg.style.color = "green";
+          loginMsg.textContent = "✅ Đăng nhập thành công!";
+        } else {
+          loginMsg.style.color = "red";
+          loginMsg.textContent = "❌ Sai tài khoản hoặc mật khẩu!";
+        }
+      });
+
+      logoutBtn.addEventListener("click", () => {
+        loggedIn = false;
+        inputArea.style.display = "none";
+        loginMsg.style.color = "black";
+        loginMsg.textContent = "Bạn đã đăng xuất!";
+      });
+
+      addBtn.addEventListener("click", addString);
+      inputText.addEventListener("keyup", (e) => {
+        if (e.key === "Enter") addString();
+      });
+
+      function addString() {
+        if (!loggedIn) return;
+        const v = inputText.value.trim();
+        if (!v) return;
+        const time = new Date().toLocaleString();
+        data.push({ text: v, time });
+        counts[v] = (counts[v] || 0) + 1;
+        renderList();
+        renderCounts();
+        inputText.value = "";
+        inputText.focus();
+      }
+
+      function renderList() {
+        listBox.innerHTML = "";
+        data
+          .slice()
+          .reverse()
+          .forEach((it) => {
+            const div = document.createElement("div");
+            div.className = "item";
+            div.innerHTML = `<strong>${escapeHtml(
+              it.text
+            )}</strong> <span class="time">(${it.time})</span>`;
+            listBox.appendChild(div);
+          });
+      }
+
+      function renderCounts() {
+        countBox.innerHTML = "";
+        for (const k in counts) {
+          const div = document.createElement("div");
+          div.className = "item";
+          div.textContent = `${k}: ${counts[k]} lần`;
+          countBox.appendChild(div);
+        }
+      }
+
+      // Xuất excel
+      exportBtn.addEventListener("click", () => {
+        const wb = XLSX.utils.book_new();
+
+        // sheet 1: danh sách nhập
+        const ws1 = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws1, "Danh sách");
+
+        // sheet 2: thống kê
+        const stats = Object.keys(counts).map((k) => ({
+          Chuỗi: k,
+          "Số lần": counts[k],
+        }));
+        const ws2 = XLSX.utils.json_to_sheet(stats);
+        XLSX.utils.book_append_sheet(wb, ws2, "Thống kê");
+
+        XLSX.writeFile(wb, "du_lieu_nhap.xlsx");
+      });
+
+      function escapeHtml(s) {
+        return s.replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c])
+        );
+      }
+    </script>
+  </body>
+</html>
